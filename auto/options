@@ -145,6 +145,7 @@ PCRE_JIT=NO
 
 USE_OPENSSL=NO
 OPENSSL=NONE
+OPENSSL_COMPARTMENT=NO
 
 USE_ZLIB=NO
 ZLIB=NONE
@@ -352,6 +353,7 @@ use the \"--with-mail_ssl_module\" option instead"
 
         --with-openssl=*)                OPENSSL="$value"           ;;
         --with-openssl-opt=*)            OPENSSL_OPT="$value"       ;;
+        --with-openssl-compartment)      OPENSSL_COMPARTMENT=YES    ;;
 
         --with-md5=*)
             NGX_POST_CONF_MSG="$NGX_POST_CONF_MSG
