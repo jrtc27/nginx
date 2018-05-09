@@ -54,7 +54,6 @@ else
         have=NGX_SSL . auto/have
         CFLAGS="$CFLAGS -DLIBSSL_COMPARTMENT"
         OPENSSL=YES
-    fi
     elif [ "$NGX_PLATFORM" != win32 ]; then
 
         OPENSSL=NO
