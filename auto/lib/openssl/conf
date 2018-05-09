@@ -54,6 +54,8 @@ else
         have=NGX_SSL . auto/have
         have=NGX_OPENSSL . auto/have
         CFLAGS="$CFLAGS -DLIBSSL_COMPARTMENT"
+        # XXX: List all undefined symbols
+        MAIN_LINK="-Wl,-error-limit=0"
         OPENSSL=YES
     elif [ "$NGX_PLATFORM" != win32 ]; then
 
