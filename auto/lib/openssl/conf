@@ -52,6 +52,7 @@ else
 
     if [ "$OPENSSL_COMPARTMENT" = YES ]; then
         have=NGX_SSL . auto/have
+        have=NGX_OPENSSL . auto/have
         CFLAGS="$CFLAGS -DLIBSSL_COMPARTMENT"
         OPENSSL=YES
     elif [ "$NGX_PLATFORM" != win32 ]; then
