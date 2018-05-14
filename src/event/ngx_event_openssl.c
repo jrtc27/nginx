@@ -132,7 +132,7 @@ ngx_ssl_init(ngx_log_t *log)
 {
 #ifdef LIBSSL_COMPARTMENT
     libcheri_init();
-    if (sandbox_class_new(COMPARTMENT_PATH, 0, &__libssl_classp) < 0) {
+    if (sandbox_class_new(LIBSSL_COMPARTMENT_PATH, 0, &__libssl_classp) < 0) {
         ngx_ssl_error(NGX_LOG_ALERT, log, 0, "sandbox_class_new() failed");
         return NGX_ERROR;
     }
