@@ -71,7 +71,13 @@ static void ngx_openssl_exit(ngx_cycle_t *cycle);
 
 
 #ifdef LIBSSL_COMPARTMENT
-struct cheri_object __libssl;
+#include <cheri/libcheri_sandbox.h>
+
+#define LIBSSL_COMPARTMENT_PATH        "/usr/libcheri/ssl.co.0"
+
+struct cheri_object    __libssl;
+struct sandbox_object *__libssl_objectp;
+struct sandbox_class  *__libssl_classp;
 #endif
 
 
@@ -124,6 +130,20 @@ int  ngx_ssl_stapling_index;
 ngx_int_t
 ngx_ssl_init(ngx_log_t *log)
 {
+#ifdef LIBSSL_COMPARTMENT
+    libcheri_init();
+    if (sandbox_class_new(COMPARTMENT_PATH, 0, &__libssl_classp) < 0) {
+        ngx_ssl_error(NGX_LOG_ALERT, log, 0, "sandbox_class_new() failed");
+        return NGX_ERROR;
+    }
+    if (sandbox_object_new(__libssl_classp, 2*1024*1024,
+                &__libssl_objectp) < 0) {
+        ngx_ssl_error(NGX_LOG_ALERT, log, 0, "sandbox_object_new() failed");
+        return NGX_ERROR;
+    }
+    __libssl = sandbox_object_getobject(__libssl_objectp);
+#endif
+
 #if OPENSSL_VERSION_NUMBER >= 0x10100003L
 
     if (OPENSSL_init_ssl(OPENSSL_INIT_LOAD_CONFIG, NULL) == 0) {
