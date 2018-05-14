@@ -54,6 +54,7 @@ else
         have=NGX_SSL . auto/have
         have=NGX_OPENSSL . auto/have
         CFLAGS="$CFLAGS -DLIBSSL_COMPARTMENT"
+        CORE_LIBS="$CORE_LIBS -lcheri"
         # XXX: List all undefined symbols
         MAIN_LINK="-Wl,-error-limit=0"
         OPENSSL=YES

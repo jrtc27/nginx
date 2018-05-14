@@ -70,6 +70,11 @@ static char *ngx_openssl_engine(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static void ngx_openssl_exit(ngx_cycle_t *cycle);
 
 
+#ifdef LIBSSL_COMPARTMENT
+struct cheri_object __libssl;
+#endif
+
+
 static ngx_command_t  ngx_openssl_commands[] = {
 
     { ngx_string("ssl_engine"),
