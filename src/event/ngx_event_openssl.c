@@ -73,7 +73,7 @@ static void ngx_openssl_exit(ngx_cycle_t *cycle);
 #ifdef LIBSSL_COMPARTMENT
 #include <cheri/libcheri_sandbox.h>
 
-#define LIBSSL_COMPARTMENT_PATH        "/usr/libcheri/ssl.co.0"
+#define LIBSSL_COMPARTMENT_PATH        "/usr/libcheri/ssl.co.8"
 
 struct cheri_object    __libssl;
 struct sandbox_object *__libssl_objectp;
