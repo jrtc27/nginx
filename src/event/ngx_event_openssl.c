@@ -425,7 +425,7 @@ ngx_ssl_certificate(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *cert,
     u_long       n;
     ngx_str_t   *pwd;
     ngx_uint_t   tries;
-#ifdef LISSL_COMPARTMENT
+#ifdef LIBSSL_COMPARTMENT
     int fd;
     struct sandbox_object *fd_sbop;
     struct cheri_object fd_co;
