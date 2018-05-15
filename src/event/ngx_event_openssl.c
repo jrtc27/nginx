@@ -160,7 +160,30 @@ ngx_ssl_init(ngx_log_t *log)
 
 #else
 
+#ifdef LIBSSL_COMPARTMENT
+    {
+    int fd;
+    struct sandbox_object fd_sbop;
+    struct cheri_object fd_co;
+
+    fd = open("/etc/ssl/"OPENSSL_CONF, O_RDONLY);
+    if (fd < 0) {
+        ngx_ssl_error(NGX_LOG_ALERT, log, 0, "open() failed");
+        return NGX_ERROR;
+    }
+    if (libcheri_fd_new(fd, &fd_sbop) < 0) {
+        ngx_ssl_error(NGX_LOG_ALERT, log, 0, "libcheri_fd_new() failed");
+        close(fd);
+        return NGX_ERROR;
+    }
+    fd_co = sandbox_object_getobject(fd_sbop);
+    OPENSSL_config(fd_co, NULL);
+    libcheri_fd_destroy(fd_sbop);
+    close(fd);
+    }
+#else
     OPENSSL_config(NULL);
+#endif
 
     SSL_library_init();
     SSL_load_error_strings();
