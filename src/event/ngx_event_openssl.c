@@ -649,11 +649,33 @@ ngx_ssl_certificate(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *cert,
 #endif
     }
 
+#ifdef LIBSSL_COMPARTMENT
+    fd = open((char *) key->data, O_RDONLY);
+    if (fd < 0) {
+        ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                      "open(\"%s\") failed", key->data);
+        return NGX_ERROR;
+    }
+    if (libcheri_fd_new(fd, &fd_sbop) < 0) {
+        ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                      "libcheri_fd_new() failed");
+        close(fd);
+        return NGX_ERROR;
+    }
+    fd_co = sandbox_object_getobject(fd_sbop);
+#endif
+
     for ( ;; ) {
 
+#ifdef LIBSSL_COMPARTMENT
+        if (SSL_CTX_use_PrivateKey_cheri(ssl->ctx, fd_co,
+                                         SSL_FILETYPE_PEM)
+            != 0)
+#else
         if (SSL_CTX_use_PrivateKey_file(ssl->ctx, (char *) key->data,
                                         SSL_FILETYPE_PEM)
             != 0)
+#endif
         {
             break;
         }
