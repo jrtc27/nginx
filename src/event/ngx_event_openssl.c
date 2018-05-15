@@ -71,6 +71,7 @@ static void ngx_openssl_exit(ngx_cycle_t *cycle);
 
 
 #ifdef LIBSSL_COMPARTMENT
+#include <cheri/libcheri_fd.h>
 #include <cheri/libcheri_sandbox.h>
 
 #define LIBSSL_COMPARTMENT_PATH        "/usr/libcheri/ssl.co.8"
@@ -163,10 +164,10 @@ ngx_ssl_init(ngx_log_t *log)
 #ifdef LIBSSL_COMPARTMENT
     {
     int fd;
-    struct sandbox_object fd_sbop;
+    struct sandbox_object *fd_sbop;
     struct cheri_object fd_co;
 
-    fd = open("/etc/ssl/"OPENSSL_CONF, O_RDONLY);
+    fd = open("/etc/ssl/openssl.cnf", O_RDONLY);
     if (fd < 0) {
         ngx_ssl_error(NGX_LOG_ALERT, log, 0, "open() failed");
         return NGX_ERROR;
