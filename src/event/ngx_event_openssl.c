@@ -425,6 +425,11 @@ ngx_ssl_certificate(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *cert,
     u_long       n;
     ngx_str_t   *pwd;
     ngx_uint_t   tries;
+#ifdef LISSL_COMPARTMENT
+    int fd;
+    struct sandbox_object *fd_sbop;
+    struct cheri_object fd_co;
+#endif
 
     if (ngx_conf_full_name(cf->cycle, cert, 1) != NGX_OK) {
         return NGX_ERROR;
@@ -436,12 +441,34 @@ ngx_ssl_certificate(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *cert,
      * it here
      */
 
+#ifdef LIBSSL_COMPARTMENT
+    fd = open((char *) cert->data, O_RDONLY);
+    if (fd < 0) {
+        ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                      "open(\"%s\") failed", cert->data);
+        return NGX_ERROR;
+    }
+    if (libcheri_fd_new(fd, &fd_sbop) < 0) {
+        ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                      "libcheri_fd_new() failed");
+        close(fd);
+        return NGX_ERROR;
+    }
+    fd_co = sandbox_object_getobject(fd_sbop);
+    bio = BIO_new_cheri(fd_co, 1);
+    if (bio == NULL) {
+        ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                      "BIO_new_cheri() failed");
+        return NGX_ERROR;
+    }
+#else
     bio = BIO_new_file((char *) cert->data, "r");
     if (bio == NULL) {
         ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
                       "BIO_new_file(\"%s\") failed", cert->data);
         return NGX_ERROR;
     }
+#endif
 
     x509 = PEM_read_bio_X509_AUX(bio, NULL, NULL, NULL);
     if (x509 == NULL) {
@@ -1085,6 +1112,11 @@ ngx_ssl_dhparam(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *file)
 {
     DH   *dh;
     BIO  *bio;
+#ifdef LIBSSL_COMPARTMENT
+    int fd;
+    struct sandbox_object *fd_sbop;
+    struct cheri_object fd_co;
+#endif
 
     if (file->len == 0) {
         return NGX_OK;
@@ -1094,12 +1126,34 @@ ngx_ssl_dhparam(ngx_conf_t *cf, ngx_ssl_t *ssl, ngx_str_t *file)
         return NGX_ERROR;
     }
 
+#ifdef LIBSSL_COMPARTMENT
+    fd = open((char *) file->data, O_RDONLY);
+    if (fd < 0) {
+        ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                      "open(\"%s\") failed", file->data);
+        return NGX_ERROR;
+    }
+    if (libcheri_fd_new(fd, &fd_sbop) < 0) {
+        ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                      "libcheri_fd_new() failed");
+        close(fd);
+        return NGX_ERROR;
+    }
+    fd_co = sandbox_object_getobject(fd_sbop);
+    bio = BIO_new_cheri(fd_co, 1);
+    if (bio == NULL) {
+        ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
+                      "BIO_new_cheri() failed");
+        return NGX_ERROR;
+    }
+#else
     bio = BIO_new_file((char *) file->data, "r");
     if (bio == NULL) {
         ngx_ssl_error(NGX_LOG_EMERG, ssl->log, 0,
                       "BIO_new_file(\"%s\") failed", file->data);
         return NGX_ERROR;
     }
+#endif
 
     dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
     if (dh == NULL) {
