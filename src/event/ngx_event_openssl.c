@@ -1307,11 +1307,11 @@ ngx_ssl_create_connection(ngx_ssl_t *ssl, ngx_connection_t *c, ngx_uint_t flags)
 
 #ifdef LIBSSL_COMPARTMENT
     if (libcheri_fd_new(c->fd, &fd_sbop) < 0) {
-        ngx_ssl_error(NGX_LOG_ALERT, log, 0, "libcheri_fd_new() failed");
+        ngx_ssl_error(NGX_LOG_ALERT, c->log, 0, "libcheri_fd_new() failed");
         return NGX_ERROR;
     }
     fd_co = sandbox_object_getobject(fd_sbop);
-    if (SSL_set_cheri_fd(sc->connection, c->fd) == 0) {
+    if (SSL_set_cheri_fd(sc->connection, fd_co) == 0) {
         ngx_ssl_error(NGX_LOG_ALERT, c->log, 0, "SSL_set_cheri_fd() failed");
         return NGX_ERROR;
     }
