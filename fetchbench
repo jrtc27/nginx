@@ -12,7 +12,7 @@ FETCHARGS="-qo"
 
 case "$URL" in
 	https:*)
-		FETCHARGS="${FETCHARGS} -no-verify-hostname --no-verify-peer"
+		FETCHARGS="${FETCHARGS} --ca-cert /etc/ssl/nginx/selfsigned.crt"
 		;;
 esac
 
