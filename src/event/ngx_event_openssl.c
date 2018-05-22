@@ -1283,6 +1283,10 @@ ngx_int_t
 ngx_ssl_create_connection(ngx_ssl_t *ssl, ngx_connection_t *c, ngx_uint_t flags)
 {
     ngx_ssl_connection_t  *sc;
+#ifdef LIBSSL_COMPARTMENT
+    struct sandbox_object *fd_sbop;
+    struct cheri_object fd_co;
+#endif
 
     sc = ngx_pcalloc(c->pool, sizeof(ngx_ssl_connection_t));
     if (sc == NULL) {
@@ -1301,10 +1305,22 @@ ngx_ssl_create_connection(ngx_ssl_t *ssl, ngx_connection_t *c, ngx_uint_t flags)
         return NGX_ERROR;
     }
 
+#ifdef LIBSSL_COMPARTMENT
+    if (libcheri_fd_new(c->fd, &fd_sbop) < 0) {
+        ngx_ssl_error(NGX_LOG_ALERT, log, 0, "libcheri_fd_new() failed");
+        return NGX_ERROR;
+    }
+    fd_co = sandbox_object_getobject(fd_sbop);
+    if (SSL_set_cheri_fd(sc->connection, c->fd) == 0) {
+        ngx_ssl_error(NGX_LOG_ALERT, c->log, 0, "SSL_set_cheri_fd() failed");
+        return NGX_ERROR;
+    }
+#else
     if (SSL_set_fd(sc->connection, c->fd) == 0) {
         ngx_ssl_error(NGX_LOG_ALERT, c->log, 0, "SSL_set_fd() failed");
         return NGX_ERROR;
     }
+#endif
 
     if (flags & NGX_SSL_CLIENT) {
         SSL_set_connect_state(sc->connection);
