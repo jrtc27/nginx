@@ -86,6 +86,7 @@ void ngx_http_init_connection(ngx_connection_t *c);
 void ngx_http_close_connection(ngx_connection_t *c);
 
 #if (NGX_HTTP_SSL && defined SSL_CTRL_SET_TLSEXT_HOSTNAME)
+CHERI_LIBSSL_CCALLBACK
 int ngx_http_ssl_servername(ngx_ssl_conn_t *ssl_conn, int *ad, void *arg);
 #endif
 
