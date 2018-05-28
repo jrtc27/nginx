@@ -252,7 +252,7 @@ ngx_kqueue_notify_init(ngx_log_t *log)
     notify_kev.fflags = NOTE_TRIGGER | NOTE_FFCOPY;
     notify_kev.udata = NGX_KQUEUE_UDATA_T ((uintptr_t) &notify_event);
 
-    ngx_log_debug0(NGX_LOG_DEBUG_EVENT, ev->log, 0, "kevent(EVFILT_USER, EV_ADD) done");
+    ngx_log_debug0(NGX_LOG_DEBUG_EVENT, log, 0, "kevent(EVFILT_USER, EV_ADD) done");
 
     return NGX_OK;
 }
@@ -458,7 +458,7 @@ ngx_kqueue_set_event(ngx_event_t *ev, ngx_int_t filter, ngx_uint_t flags)
 #endif
     }
 
-    ngx_kqueue_dump_event(ev->log, &kev);
+    ngx_kqueue_dump_event(ev->log, kev);
 
     ev->index = nchanges;
     nchanges++;
