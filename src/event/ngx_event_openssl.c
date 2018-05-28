@@ -1594,10 +1594,12 @@ ngx_ssl_recv(ngx_connection_t *c, u_char *buf, size_t size)
 {
     struct libcheri_callback *cb;
     struct libcheri_message msg;
+    ssize_t rc;
 
     if (c->ssl->recv_deferred) {
+        rc = c->ssl->recv_deferred;
         c->ssl->recv_deferred = 0;
-        return c->ssl->recv_deferred;
+        return rc;
     }
 
     if (c->ssl->last == NGX_ERROR) {
