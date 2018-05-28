@@ -1683,7 +1683,7 @@ ngx_ssl_recv_callback(void *arg, int n) {
 
 done:
     c->ssl->recv_deferred = rc;
-    ngx_handle_read_event(c->read, NGX_FLUSH_EVENT);
+    ngx_add_event(c->read, NGX_READ_EVENT, NGX_CLEAR_EVENT | NGX_FLUSH_EVENT);
 }
 #else
 ssize_t
