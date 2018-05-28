@@ -317,6 +317,7 @@ extern ngx_uint_t            ngx_use_epoll_rdhup;
 
 #define NGX_READ_EVENT     EVFILT_READ
 #define NGX_WRITE_EVENT    EVFILT_WRITE
+#define NGX_WAKE_EVENT     EVFILT_USER
 
 #undef  NGX_VNODE_EVENT
 #define NGX_VNODE_EVENT    EVFILT_VNODE

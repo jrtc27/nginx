@@ -249,7 +249,7 @@ ngx_kqueue_notify_init(ngx_log_t *log)
     notify_event.log = log;
 
     notify_kev.flags = 0;
-    notify_kev.fflags = NOTE_TRIGGER;
+    notify_kev.fflags = NOTE_TRIGGER | NOTE_FFCOPY;
     notify_kev.udata = NGX_KQUEUE_UDATA_T ((uintptr_t) &notify_event);
 
     return NGX_OK;
@@ -329,7 +329,7 @@ ngx_kqueue_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 
 #endif
 
-    rc = ngx_kqueue_set_event(ev, event, EV_ADD|EV_ENABLE|flags);
+    rc = ngx_kqueue_set_event(ev, event, EV_ADD|EV_ENABLE|flags, 0);
 
     return rc;
 }
@@ -383,7 +383,7 @@ ngx_kqueue_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
         flags |= EV_DELETE;
     }
 
-    rc = ngx_kqueue_set_event(ev, event, flags);
+    rc = ngx_kqueue_set_event(ev, event, flags, 0);
 
     return rc;
 }
@@ -436,6 +436,10 @@ ngx_kqueue_set_event(ngx_event_t *ev, ngx_int_t filter, ngx_uint_t flags)
                       ;
         kev->data = 0;
 
+    } else if (filter == EVFILT_USER) {
+        kev->ident = 0;
+        kev->fflags = NOTE_TRIGGER | NOTE_FFCOPY | 1;
+        kev->data = 0;
     } else {
 #if (NGX_HAVE_LOWAT_EVENT)
         if (flags & NGX_LOWAT_EVENT) {
@@ -597,6 +601,14 @@ ngx_kqueue_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
 
         switch (event_list[i].filter) {
 
+#ifdef EVFILT_USER
+        case EVFILT_USER:
+            if (event_list[i].fflags == 0)
+                break;
+
+            /* fall through */
+#endif
+
         case EVFILT_READ:
         case EVFILT_WRITE:
 
@@ -619,11 +631,15 @@ ngx_kqueue_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
                 ngx_kqueue_dump_event(ev->log, &event_list[i]);
             }
 
+            ev->available = event_list[i].data;
+
+            if (event_list[i].filter == EVFILT_USER) {
+                break;
+            }
+
             if (ev->oneshot) {
                 ev->active = 0;
             }
-
-            ev->available = event_list[i].data;
 
             if (event_list[i].flags & EV_EOF) {
                 ev->pending_eof = 1;
@@ -645,10 +661,6 @@ ngx_kqueue_process_events(ngx_cycle_t *cycle, ngx_msec_t timer,
 
             break;
 
-#ifdef EVFILT_USER
-        case EVFILT_USER:
-            break;
-#endif
 
         default:
             ngx_log_error(NGX_LOG_ALERT, cycle->log, 0,
