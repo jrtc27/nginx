@@ -1386,6 +1386,24 @@ ngx_ssl_handshake(ngx_connection_t *c)
 
         }
 
+        /*
+         * Check if we got the required event whilst the handshake was
+         * completing asynchronously.
+         */
+        if (rc == SSL_ERROR_WANT_READ) {
+            rc = NGX_AGAIN;
+
+            if (c->read->ready) {
+                ngx_add_event(c->read, NGX_WAKE_EVENT, NGX_FLUSH_EVENT);
+            }
+        } else if (rc == SSL_ERROR_WANT_WRITE) {
+            rc = NGX_AGAIN;
+
+            if (c->write->ready) {
+                ngx_add_event(c->write, NGX_WAKE_EVENT, NGX_FLUSH_EVENT);
+            }
+        }
+
         return rc;
     }
 
@@ -1503,7 +1521,7 @@ ngx_ssl_handshake_callback(void *arg, int n)
         c->read->handler = ngx_ssl_handshake_handler;
         c->write->handler = ngx_ssl_handshake_handler;
 
-        rc = NGX_AGAIN;
+        rc = sslerr; /* doesn't alias nginx's codes */
         goto done;
     }
 
@@ -1512,7 +1530,7 @@ ngx_ssl_handshake_callback(void *arg, int n)
         c->read->handler = ngx_ssl_handshake_handler;
         c->write->handler = ngx_ssl_handshake_handler;
 
-        rc = NGX_AGAIN;
+        rc = sslerr; /* doesn't alias nginx's codes */
         goto done;
     }
 
