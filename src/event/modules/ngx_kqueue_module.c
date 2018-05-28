@@ -329,7 +329,7 @@ ngx_kqueue_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
 
 #endif
 
-    rc = ngx_kqueue_set_event(ev, event, EV_ADD|EV_ENABLE|flags, 0);
+    rc = ngx_kqueue_set_event(ev, event, EV_ADD|EV_ENABLE|flags);
 
     return rc;
 }
@@ -383,7 +383,7 @@ ngx_kqueue_del_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
         flags |= EV_DELETE;
     }
 
-    rc = ngx_kqueue_set_event(ev, event, flags, 0);
+    rc = ngx_kqueue_set_event(ev, event, flags);
 
     return rc;
 }
