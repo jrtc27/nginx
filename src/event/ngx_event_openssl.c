@@ -2463,7 +2463,7 @@ ngx_ssl_shutdown(ngx_connection_t *c)
     ngx_err_t  err;
 
 #ifdef NGX_SSL_ASYNC
-    if (c->handshake_pending || c->recv_pending || c->write_pending) {
+    if (c->ssl->handshake_pending || c->ssl->recv_pending || c->ssl->write_pending) {
         return NGX_AGAIN;
     }
 #endif
