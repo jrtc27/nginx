@@ -248,7 +248,7 @@ ngx_kqueue_notify_init(ngx_log_t *log)
     notify_event.active = 1;
     notify_event.log = log;
 
-    notify_kev.flags = 0;
+    notify_kev.flags = EV_ADD;
     notify_kev.fflags = NOTE_TRIGGER | NOTE_FFCOPY;
     notify_kev.udata = NGX_KQUEUE_UDATA_T ((uintptr_t) &notify_event);
 
