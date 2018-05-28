@@ -58,6 +58,9 @@ else
         # XXX: List all undefined symbols
         MAIN_LINK="-Wl,-error-limit=0"
         OPENSSL=YES
+        if [ "$OPENSSL_ASYNC" = YES ]; then
+            have=NGX_SSL_ASYNC . auto/have
+        fi
     elif [ "$NGX_PLATFORM" != win32 ]; then
 
         OPENSSL=NO

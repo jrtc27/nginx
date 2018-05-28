@@ -80,6 +80,10 @@ static void ngx_openssl_exit(ngx_cycle_t *cycle);
 struct cheri_object    __libssl;
 struct sandbox_object *__libssl_objectp;
 struct sandbox_class  *__libssl_classp;
+
+#ifdef NGX_SSL_ASYNC
+static void ngx_ssl_recv_callback(void *arg, int n);
+#endif
 #endif
 
 
@@ -1583,6 +1587,105 @@ ngx_ssl_recv_chain(ngx_connection_t *c, ngx_chain_t *cl, off_t limit)
 }
 
 
+#ifdef NGX_SSL_ASYNC
+ssize_t
+ngx_ssl_recv(ngx_connection_t *c, u_char *buf, size_t size)
+{
+    int  n;
+    struct libcheri_callback *cb;
+    struct libcheri_message msg;
+
+    if (c->ssl->recv_deferred) {
+        c->ssl->recv_deferred = 0;
+        return c->ssl->recv_deferred;
+    }
+
+    if (c->ssl->last == NGX_ERROR) {
+        c->read->error = 1;
+        return NGX_ERROR;
+    }
+
+    if (c->ssl->last == NGX_DONE) {
+        c->read->ready = 0;
+        c->read->eof = 1;
+        return 0;
+    }
+
+    ngx_ssl_clear_error(c->log);
+
+    c->read->ready = 0;
+
+    cb.func = ngx_ssl_recv_callback;
+    cb.arg = c;
+    memset(&msg, 0, sizeof(msg));
+
+    msg.method_num = SSL_read_method_num;
+    msg.callback = cb;
+    msg.rcv_ring = libcheri_async_get_ring();
+    msg.c3 = c->ssl->connection;
+    msg.c4 = buf;
+    msg.a0 = size;
+    libcheri_message_send(__libssl_objectp, &msg);
+
+    return NGX_ASYNC;
+}
+
+static void
+ngx_ssl_recv_callback(void *arg, int n) {
+    ngx_connection_t *c;
+    size_t bytes;
+    ssize_t rc;
+
+    ctx = arg;
+    c = arg;
+    bytes = 0;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_read: %d", n);
+
+    if (n > 0) {
+        bytes += n;
+    }
+
+    c->ssl->last = ngx_ssl_handle_recv(c, n);
+
+    if (c->ssl->last == NGX_OK) {
+        c->read->ready = 1;
+        rc = bytes;
+        goto done;
+    }
+
+    if (bytes) {
+        if (c->ssl->last != NGX_AGAIN) {
+            c->read->ready = 1;
+        }
+
+        rc = bytes;
+        goto done;
+    }
+
+    switch (c->ssl->last) {
+
+    case NGX_DONE:
+        c->read->ready = 0;
+        c->read->eof = 1;
+        rc = 0;
+        goto done;
+
+    case NGX_ERROR:
+        c->read->error = 1;
+
+        /* fall through */
+
+    case NGX_AGAIN:
+        rc = c->ssl->last;
+        goto done;
+    }
+
+done:
+    c->ssl->recv_deferred = rc;
+    ngx_handle_read_event(c->read, 0);
+}
+#else
 ssize_t
 ngx_ssl_recv(ngx_connection_t *c, u_char *buf, size_t size)
 {
@@ -1659,6 +1762,7 @@ ngx_ssl_recv(ngx_connection_t *c, u_char *buf, size_t size)
         }
     }
 }
+#endif
 
 
 static ngx_int_t

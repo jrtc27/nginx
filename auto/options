@@ -145,6 +145,7 @@ PCRE_JIT=NO
 
 USE_OPENSSL=NO
 OPENSSL=NONE
+OPENSSL_ASYNC=NO
 OPENSSL_COMPARTMENT=NO
 
 USE_ZLIB=NO
@@ -353,6 +354,7 @@ use the \"--with-mail_ssl_module\" option instead"
 
         --with-openssl=*)                OPENSSL="$value"           ;;
         --with-openssl-opt=*)            OPENSSL_OPT="$value"       ;;
+        --with-openssl-async)            OPENSSL_ASYNC=YES          ;;
         --with-openssl-compartment)      OPENSSL_COMPARTMENT=YES    ;;
 
         --with-md5=*)

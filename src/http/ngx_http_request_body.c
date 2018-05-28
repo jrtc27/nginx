@@ -338,7 +338,7 @@ ngx_http_do_read_client_request_body(ngx_http_request_t *r)
             ngx_log_debug1(NGX_LOG_DEBUG_HTTP, c->log, 0,
                            "http client request body recv %z", n);
 
-            if (n == NGX_AGAIN) {
+            if (n == NGX_AGAIN || n == NGX_ASYNC) {
                 break;
             }
 
@@ -404,7 +404,7 @@ ngx_http_do_read_client_request_body(ngx_http_request_t *r)
             clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
             ngx_add_timer(c->read, clcf->client_body_timeout);
 
-            if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
+            if (n != NGX_ASYNC && ngx_handle_read_event(c->read, 0) != NGX_OK) {
                 return NGX_HTTP_INTERNAL_SERVER_ERROR;
             }
 
@@ -566,11 +566,11 @@ ngx_http_discard_request_body(ngx_http_request_t *r)
         return rc;
     }
 
-    /* rc == NGX_AGAIN */
+    /* rc == NGX_AGAIN || rc == NGX_ASYNC */
 
     r->read_event_handler = ngx_http_discarded_request_body_handler;
 
-    if (ngx_handle_read_event(rev, 0) != NGX_OK) {
+    if (rc != NX_ASYNC && ngx_handle_read_event(rev, 0) != NGX_OK) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 

@@ -66,6 +66,9 @@ struct ngx_ssl_connection_s {
     SSL_CTX                    *session_ctx;
 
     ngx_int_t                   last;
+#ifdef NGX_SSL_ASYNC
+    ssize_t                     recv_deferred;
+#endif
     ngx_buf_t                  *buf;
     size_t                      buffer_size;
 

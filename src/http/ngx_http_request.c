@@ -431,6 +431,16 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
 
     n = c->recv(c, b->last, size);
 
+    if (n == NGX_ASYNC) {
+
+        if (!rev->timer_set) {
+            ngx_add_timer(rev, c->listening->post_accept_timeout);
+            ngx_reusable_connection(c, 1);
+        }
+
+        return;
+    }
+
     if (n == NGX_AGAIN) {
 
         if (!rev->timer_set) {
@@ -1392,13 +1402,13 @@ ngx_http_read_request_header(ngx_http_request_t *r)
         n = NGX_AGAIN;
     }
 
-    if (n == NGX_AGAIN) {
+    if (n == NGX_AGAIN || n == NGX_ASYNC) {
         if (!rev->timer_set) {
             cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
             ngx_add_timer(rev, cscf->client_header_timeout);
         }
 
-        if (ngx_handle_read_event(rev, 0) != NGX_OK) {
+        if (n != NGX_ASYNC && ngx_handle_read_event(rev, 0) != NGX_OK) {
             ngx_http_close_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
             return NGX_ERROR;
         }
@@ -3133,8 +3143,8 @@ ngx_http_keepalive_handler(ngx_event_t *rev)
     n = c->recv(c, b->last, size);
     c->log_error = NGX_ERROR_INFO;
 
-    if (n == NGX_AGAIN) {
-        if (ngx_handle_read_event(rev, 0) != NGX_OK) {
+    if (n == NGX_AGAIN || n == NGX_ASYNC) {
+        if (n != NGX_ASYNC && ngx_handle_read_event(rev, 0) != NGX_OK) {
             ngx_http_close_connection(c);
             return;
         }
@@ -3278,7 +3288,7 @@ ngx_http_lingering_close_handler(ngx_event_t *rev)
 
     } while (rev->ready);
 
-    if (ngx_handle_read_event(rev, 0) != NGX_OK) {
+    if (n != NGX_ASYNC && ngx_handle_read_event(rev, 0) != NGX_OK) {
         ngx_http_close_request(r, 0);
         return;
     }
