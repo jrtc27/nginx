@@ -656,6 +656,13 @@ ngx_http_ssl_handshake(ngx_event_t *rev)
         return;
     }
 
+#ifdef NGX_SSL_ASYNC
+    if (c->ssl->handshake_pending || c->ssl->handshaked) {
+        ngx_http_ssl_handshake_handler(c);
+        return;
+    }
+#endif
+
     size = hc->proxy_protocol ? sizeof(buf) : 1;
 
     n = recv(c->fd, (char *) buf, size, MSG_PEEK);

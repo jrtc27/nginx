@@ -2462,6 +2462,12 @@ ngx_ssl_shutdown(ngx_connection_t *c)
     int        n, sslerr, mode;
     ngx_err_t  err;
 
+#ifdef NGX_SSL_ASYNC
+    if (c->handshake_pending || c->recv_pending || c->write_pending) {
+        return NGX_AGAIN;
+    }
+#endif
+
     if (SSL_in_init(c->ssl->connection)) {
         /*
          * OpenSSL 1.0.2f complains if SSL_shutdown() is called during
