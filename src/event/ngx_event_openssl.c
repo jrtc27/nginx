@@ -1371,6 +1371,7 @@ ngx_ssl_handshake(ngx_connection_t *c)
 
     if (c->ssl->handshake_deferred) {
         rc = c->ssl->handshake_deferred;
+        rc = rc != 1 ? rc : NGX_OK;
         c->ssl->handshake_deferred = 0;
 
         if (rc != NGX_ERROR) {
@@ -1536,7 +1537,7 @@ ngx_ssl_handshake_callback(void *arg, int n)
     rc = NGX_ERROR;
 
 done:
-    c->ssl->handshake_deferred = rc;
+    c->ssl->handshake_deferred = rc ? rc : 1;
     c->ssl->handshake_pending = 0;
     ngx_add_event(c->read, NGX_WAKE_EVENT, NGX_FLUSH_EVENT);
 }
