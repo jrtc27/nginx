@@ -2093,6 +2093,8 @@ ngx_ssl_write_callback(void *arg, int n)
     ngx_err_t         err;
     ssize_t           rc;
 
+    c = arg;
+
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_write: %d", n);
 
     if (n > 0) {
