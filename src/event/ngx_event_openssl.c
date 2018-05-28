@@ -1592,7 +1592,6 @@ ngx_ssl_recv_chain(ngx_connection_t *c, ngx_chain_t *cl, off_t limit)
 ssize_t
 ngx_ssl_recv(ngx_connection_t *c, u_char *buf, size_t size)
 {
-    int  n;
     struct libcheri_callback *cb;
     struct libcheri_message msg;
 
@@ -1616,6 +1615,7 @@ ngx_ssl_recv(ngx_connection_t *c, u_char *buf, size_t size)
 
     c->read->ready = 0;
 
+    cb = malloc(sizeof(*cb));
     cb->func = ngx_ssl_recv_callback;
     cb->arg = c;
     memset(&msg, 0, sizeof(msg));
@@ -1635,7 +1635,7 @@ static void
 ngx_ssl_recv_callback(void *arg, int n) {
     ngx_connection_t *c;
     size_t bytes;
-    ssize_t rc;
+    ssize_t rc = 0;
 
     c = arg;
     bytes = 0;
