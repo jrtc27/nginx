@@ -657,7 +657,7 @@ ngx_http_ssl_handshake(ngx_event_t *rev)
     }
 
 #ifdef NGX_SSL_ASYNC
-    if (c->ssl->handshake_pending || c->ssl->handshaked) {
+    if (c->ssl && (c->ssl->handshake_pending || c->ssl->handshaked)) {
         ngx_http_ssl_handshake_handler(c);
         return;
     }
