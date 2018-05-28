@@ -8,7 +8,7 @@ fi
 URL="${1}"
 NPROC="${2}"
 NFETCH="${3}"
-FETCHARGS="-qo"
+FETCHARGS="-qo /dev/null"
 
 case "$URL" in
 	https:*)
@@ -19,7 +19,7 @@ esac
 if [ $# -eq 4 ]; then
 	for p in `/usr/bin/jot ${NPROC}`; do
 		(
-		for f in `/usr/bin/jot ${NFETCH}`; do echo "${URL}"; done | /usr/bin/xargs /usr/bin/fetch ${FETCHARGS} /dev/null
+		for f in `/usr/bin/jot ${NFETCH}`; do echo "${URL}"; done | /usr/bin/xargs /usr/bin/fetch ${FETCHARGS}
 		) &
 	done
 	wait
