@@ -83,6 +83,7 @@ struct sandbox_class  *__libssl_classp;
 
 #ifdef NGX_SSL_ASYNC
 #include <cheri/libcheri_async.h>
+static void ngx_ssl_handshake_callback(void *arg, int n);
 static void ngx_ssl_recv_callback(void *arg, int n);
 static void ngx_ssl_write_callback(void *arg, int n);
 #endif
@@ -1360,6 +1361,186 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
 }
 
 
+#ifdef NGX_SSL_ASYNC
+ngx_int_t
+ngx_ssl_handshake(ngx_connection_t *c)
+{
+    struct libcheri_callback *cb;
+    struct libcheri_message msg;
+    ngx_int_t rc;
+
+    if (c->ssl->handshake_deferred) {
+        rc = c->ssl->handshake_deferred;
+        c->ssl->handshake_deferred = 0;
+
+        if (rc != NGX_ERROR) {
+
+            if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
+                return NGX_ERROR;
+            }
+
+            if (ngx_handle_write_event(c->write, 0) != NGX_OK) {
+                return NGX_ERROR;
+            }
+
+        }
+
+        return rc;
+    }
+
+    if (c->ssl->handshake_pending) {
+        return NGX_AGAIN;
+    }
+
+    ngx_ssl_clear_error(c->log);
+
+    c->ssl->handshake_pending = 1;
+
+    cb = malloc(sizeof(*cb));
+    cb->func = ngx_ssl_handshake_callback;
+    cb->arg = c;
+    memset(&msg, 0, sizeof(msg));
+
+    msg.method_num = SSL_read_method_num;
+    msg.callback = cb;
+    msg.rcv_ring = libcheri_async_get_ring();
+    msg.c3 = c->ssl->connection;
+    libcheri_message_send(__libssl_objectp, &msg);
+
+    return NGX_AGAIN;
+}
+
+static void
+ngx_ssl_handshake_callback(void *arg, int n)
+{
+    ngx_connection_t *c;
+    int        n, sslerr;
+    ngx_err_t  err;
+    ngx_int_t    rc;
+
+    c = arg;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
+
+    if (n == 1) {
+
+#if (NGX_DEBUG)
+        {
+        char         buf[129], *s, *d;
+#if OPENSSL_VERSION_NUMBER >= 0x10000000L
+        const
+#endif
+        SSL_CIPHER  *cipher;
+
+        cipher = SSL_get_current_cipher(c->ssl->connection);
+
+        if (cipher) {
+            SSL_CIPHER_description(cipher, &buf[1], 128);
+
+            for (s = &buf[1], d = buf; *s; s++) {
+                if (*s == ' ' && *d == ' ') {
+                    continue;
+                }
+
+                if (*s == LF || *s == CR) {
+                    continue;
+                }
+
+                *++d = *s;
+            }
+
+            if (*d != ' ') {
+                d++;
+            }
+
+            *d = '\0';
+
+            ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                           "SSL: %s, cipher: \"%s\"",
+                           SSL_get_version(c->ssl->connection), &buf[1]);
+
+            if (SSL_session_reused(c->ssl->connection)) {
+                ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                               "SSL reused session");
+            }
+
+        } else {
+            ngx_log_debug0(NGX_LOG_DEBUG_EVENT, c->log, 0,
+                           "SSL no shared ciphers");
+        }
+        }
+#endif
+
+        c->ssl->handshaked = 1;
+
+        c->recv = ngx_ssl_recv;
+        c->send = ngx_ssl_write;
+        c->recv_chain = ngx_ssl_recv_chain;
+        c->send_chain = ngx_ssl_send_chain;
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#ifdef SSL3_FLAGS_NO_RENEGOTIATE_CIPHERS
+
+        /* initial handshake done, disable renegotiation (CVE-2009-3555) */
+        if (c->ssl->connection->s3) {
+            c->ssl->connection->s3->flags |= SSL3_FLAGS_NO_RENEGOTIATE_CIPHERS;
+        }
+
+#endif
+#endif
+
+        rc = NGX_OK;
+        goto done;
+    }
+
+    sslerr = SSL_get_error(c->ssl->connection, n);
+
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_get_error: %d", sslerr);
+
+    if (sslerr == SSL_ERROR_WANT_READ) {
+        c->read->ready = 0;
+        c->read->handler = ngx_ssl_handshake_handler;
+        c->write->handler = ngx_ssl_handshake_handler;
+
+        rc = NGX_AGAIN;
+        goto done;
+    }
+
+    if (sslerr == SSL_ERROR_WANT_WRITE) {
+        c->write->ready = 0;
+        c->read->handler = ngx_ssl_handshake_handler;
+        c->write->handler = ngx_ssl_handshake_handler;
+
+        rc = NGX_AGAIN;
+        goto done;
+    }
+
+    err = (sslerr == SSL_ERROR_SYSCALL) ? ngx_errno : 0;
+
+    c->ssl->no_wait_shutdown = 1;
+    c->ssl->no_send_shutdown = 1;
+    c->read->eof = 1;
+
+    if (sslerr == SSL_ERROR_ZERO_RETURN || ERR_peek_error() == 0) {
+        ngx_connection_error(c, err,
+                             "peer closed connection in SSL handshake");
+
+        rc = NGX_ERROR;
+        goto done;
+    }
+
+    c->read->error = 1;
+
+    ngx_ssl_connection_error(c, sslerr, err, "SSL_do_handshake() failed");
+
+    rc = NGX_ERROR;
+
+done:
+    c->ssl->handshake_deferred = rc;
+    c->ssl->handshake_pending = 0;
+    ngx_add_event(c->read, NGX_WAKE_EVENT, NGX_FLUSH_EVENT);
+}
+#else
 ngx_int_t
 ngx_ssl_handshake(ngx_connection_t *c)
 {
@@ -1505,6 +1686,7 @@ ngx_ssl_handshake(ngx_connection_t *c)
 
     return NGX_ERROR;
 }
+#endif
 
 
 static void
