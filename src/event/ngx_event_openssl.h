@@ -68,6 +68,7 @@ struct ngx_ssl_connection_s {
     ngx_int_t                   last;
 #ifdef NGX_SSL_ASYNC
     ssize_t                     recv_deferred;
+    ssize_t                     write_deferred;
 #endif
     ngx_buf_t                  *buf;
     size_t                      buffer_size;
@@ -83,6 +84,10 @@ struct ngx_ssl_connection_s {
     unsigned                    no_wait_shutdown:1;
     unsigned                    no_send_shutdown:1;
     unsigned                    handshake_buffer_set:1;
+#ifdef NGX_SSL_ASYNC
+    unsigned                    recv_pending:1;
+    unsigned                    write_pending:1;
+#endif
 };
 
 

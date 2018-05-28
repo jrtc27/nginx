@@ -84,6 +84,7 @@ struct sandbox_class  *__libssl_classp;
 #ifdef NGX_SSL_ASYNC
 #include <cheri/libcheri_async.h>
 static void ngx_ssl_recv_callback(void *arg, int n);
+static void ngx_ssl_write_callback(void *arg, int n);
 #endif
 #endif
 
@@ -1602,6 +1603,10 @@ ngx_ssl_recv(ngx_connection_t *c, u_char *buf, size_t size)
         return rc;
     }
 
+    if (c->ssl->recv_pending) {
+        return NGX_ASYNC;
+    }
+
     if (c->ssl->last == NGX_ERROR) {
         c->read->error = 1;
         return NGX_ERROR;
@@ -1616,6 +1621,7 @@ ngx_ssl_recv(ngx_connection_t *c, u_char *buf, size_t size)
     ngx_ssl_clear_error(c->log);
 
     c->read->ready = 0;
+    c->ssl->recv_pending = 1;
 
     cb = malloc(sizeof(*cb));
     cb->func = ngx_ssl_recv_callback;
@@ -1685,6 +1691,7 @@ ngx_ssl_recv_callback(void *arg, int n) {
 
 done:
     c->ssl->recv_deferred = rc;
+    c->ssl->recv_pending = 0;
     ngx_add_event(c->read, NGX_WAKE_EVENT, NGX_FLUSH_EVENT);
 }
 #else
@@ -1903,7 +1910,7 @@ ngx_ssl_send_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
                 return NGX_CHAIN_ERROR;
             }
 
-            if (n == NGX_AGAIN) {
+            if (n == NGX_AGAIN || n == NGX_ASYNC) {
                 return in;
             }
 
@@ -2003,7 +2010,7 @@ ngx_ssl_send_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
             return NGX_CHAIN_ERROR;
         }
 
-        if (n == NGX_AGAIN) {
+        if (n == NGX_AGAIN || n == NGX_ASYNC) {
             break;
         }
 
@@ -2036,6 +2043,132 @@ ngx_ssl_send_chain(ngx_connection_t *c, ngx_chain_t *in, off_t limit)
 }
 
 
+#ifdef NGX_SSL_ASYNC
+ssize_t
+ngx_ssl_write(ngx_connection_t *c, u_char *data, size_t size)
+{
+    struct libcheri_callback *cb;
+    struct libcheri_message msg;
+    ssize_t rc;
+
+    if (c->ssl->write_deferred) {
+        rc = c->ssl->write_deferred;
+        c->ssl->write_deferred = 0;
+        return rc;
+    }
+
+    if (c->ssl->write_pending) {
+        return NGX_ASYNC;
+    }
+
+    ngx_ssl_clear_error(c->log);
+
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL to write: %uz", size);
+
+    c->write->ready = 0;
+    c->ssl->write_pending = 1;
+
+
+    cb = malloc(sizeof(*cb));
+    cb->func = ngx_ssl_write_callback;
+    cb->arg = c;
+    memset(&msg, 0, sizeof(msg));
+
+    msg.method_num = SSL_write_method_num;
+    msg.callback = cb;
+    msg.rcv_ring = libcheri_async_get_ring();
+    msg.c3 = c->ssl->connection;
+    msg.c4 = data;
+    msg.a0 = size;
+    libcheri_message_send(__libssl_objectp, &msg);
+
+    return NGX_ASYNC;
+}
+
+static void
+ngx_ssl_write_callback(void *arg, int n)
+{
+    ngx_connection_t *c;
+    int               sslerr;
+    ngx_err_t         err;
+    ssize_t           rc;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_write: %d", n);
+
+    if (n > 0) {
+
+        if (c->ssl->saved_read_handler) {
+
+            c->read->handler = c->ssl->saved_read_handler;
+            c->ssl->saved_read_handler = NULL;
+            c->read->ready = 1;
+
+            if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
+                rc = NGX_ERROR;
+                goto done;
+            }
+
+            ngx_add_event(c->read, NGX_WAKE_EVENT, NGX_FLUSH_EVENT);
+        }
+
+        c->sent += n;
+
+        rc = n;
+        goto done;
+    }
+
+    sslerr = SSL_get_error(c->ssl->connection, n);
+
+    err = (sslerr == SSL_ERROR_SYSCALL) ? ngx_errno : 0;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_get_error: %d", sslerr);
+
+    if (sslerr == SSL_ERROR_WANT_WRITE) {
+        c->write->ready = 0;
+        rc = NGX_AGAIN;
+        goto done;
+    }
+
+    if (sslerr == SSL_ERROR_WANT_READ) {
+
+        ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                      "peer started SSL renegotiation");
+
+        c->read->ready = 0;
+
+        if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
+            rc = NGX_ERROR;
+            goto done;
+        }
+
+        /*
+         * we do not set the timer because there is already
+         * the write event timer
+         */
+
+        if (c->ssl->saved_read_handler == NULL) {
+            c->ssl->saved_read_handler = c->read->handler;
+            c->read->handler = ngx_ssl_read_handler;
+        }
+
+        rc = NGX_AGAIN;
+        goto done;
+    }
+
+    c->ssl->no_wait_shutdown = 1;
+    c->ssl->no_send_shutdown = 1;
+    c->write->error = 1;
+
+    ngx_ssl_connection_error(c, sslerr, err, "SSL_write() failed");
+
+    rc = NGX_ERROR;
+
+done:
+    c->ssl->write_deferred = rc;
+    c->ssl->write_pending = 0;
+    ngx_add_event(c->write, NGX_WAKE_EVENT, NGX_FLUSH_EVENT);
+}
+#else
 ssize_t
 ngx_ssl_write(ngx_connection_t *c, u_char *data, size_t size)
 {
@@ -2113,6 +2246,7 @@ ngx_ssl_write(ngx_connection_t *c, u_char *data, size_t size)
 
     return NGX_ERROR;
 }
+#endif
 
 
 static void
