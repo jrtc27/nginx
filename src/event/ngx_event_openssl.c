@@ -1414,9 +1414,9 @@ static void
 ngx_ssl_handshake_callback(void *arg, int n)
 {
     ngx_connection_t *c;
-    int        n, sslerr;
-    ngx_err_t  err;
-    ngx_int_t    rc;
+    int               sslerr;
+    ngx_err_t         err;
+    ngx_int_t         rc;
 
     c = arg;
 
