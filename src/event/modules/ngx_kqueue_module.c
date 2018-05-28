@@ -477,6 +477,8 @@ ngx_kqueue_set_event(ngx_event_t *ev, ngx_int_t filter, ngx_uint_t flags)
         }
 
         nchanges = 0;
+
+        ngx_log_debug0(NGX_LOG_DEBUG_EVENT, ev->log, 0, "kevent flush done");
     }
 
     return NGX_OK;
