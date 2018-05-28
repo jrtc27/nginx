@@ -82,6 +82,7 @@ struct sandbox_object *__libssl_objectp;
 struct sandbox_class  *__libssl_classp;
 
 #ifdef NGX_SSL_ASYNC
+#include <cheri/libcheri_async.h>
 static void ngx_ssl_recv_callback(void *arg, int n);
 #endif
 #endif
@@ -1615,8 +1616,8 @@ ngx_ssl_recv(ngx_connection_t *c, u_char *buf, size_t size)
 
     c->read->ready = 0;
 
-    cb.func = ngx_ssl_recv_callback;
-    cb.arg = c;
+    cb->func = ngx_ssl_recv_callback;
+    cb->arg = c;
     memset(&msg, 0, sizeof(msg));
 
     msg.method_num = SSL_read_method_num;
@@ -1636,7 +1637,6 @@ ngx_ssl_recv_callback(void *arg, int n) {
     size_t bytes;
     ssize_t rc;
 
-    ctx = arg;
     c = arg;
     bytes = 0;
 
