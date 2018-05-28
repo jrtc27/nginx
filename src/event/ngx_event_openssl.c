@@ -1786,10 +1786,6 @@ ngx_ssl_recv(ngx_connection_t *c, u_char *buf, size_t size)
         return rc;
     }
 
-    if (c->ssl->recv_pending) {
-        return NGX_ASYNC;
-    }
-
     if (c->ssl->last == NGX_ERROR) {
         c->read->error = 1;
         return NGX_ERROR;
@@ -1799,6 +1795,10 @@ ngx_ssl_recv(ngx_connection_t *c, u_char *buf, size_t size)
         c->read->ready = 0;
         c->read->eof = 1;
         return 0;
+    }
+
+    if (c->ssl->recv_pending) {
+        return NGX_ASYNC;
     }
 
     ngx_ssl_clear_error(c->log);
