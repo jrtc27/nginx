@@ -1402,7 +1402,7 @@ ngx_ssl_handshake(ngx_connection_t *c)
     cb->arg = c;
     memset(&msg, 0, sizeof(msg));
 
-    msg.method_num = SSL_read_method_num;
+    msg.method_num = SSL_do_handshake_method_num;
     msg.callback = cb;
     msg.rcv_ring = libcheri_async_get_ring();
     msg.c3 = c->ssl->connection;
