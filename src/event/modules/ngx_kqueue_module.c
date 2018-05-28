@@ -290,7 +290,7 @@ ngx_kqueue_add_event(ngx_event_t *ev, ngx_int_t event, ngx_uint_t flags)
     ngx_connection_t  *c;
 #endif
 
-    if (event != NGX_EVENT_WAKE)
+    if (event != NGX_WAKE_EVENT)
         ev->active = 1;
     ev->disabled = 0;
     ev->oneshot = (flags & NGX_ONESHOT_EVENT) ? 1 : 0;
