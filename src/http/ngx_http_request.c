@@ -3286,7 +3286,7 @@ ngx_http_lingering_close_handler(ngx_event_t *rev)
             return;
         }
 
-    } while (rev->ready);
+    } while (rev->ready && n != NGX_ASYNC);
 
     if (n != NGX_ASYNC && ngx_handle_read_event(rev, 0) != NGX_OK) {
         ngx_http_close_request(r, 0);
