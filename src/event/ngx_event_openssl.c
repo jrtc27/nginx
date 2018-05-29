@@ -1413,6 +1413,7 @@ ngx_ssl_handshake(ngx_connection_t *c)
 
     ngx_ssl_clear_error(c->log);
 
+    c->ssl->event_since_handshake = 0;
     c->ssl->handshake_pending = 1;
 
     cb = malloc(sizeof(*cb));
@@ -1517,7 +1518,9 @@ ngx_ssl_handshake_callback(void *arg, int n)
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_get_error: %d", sslerr);
 
     if (sslerr == SSL_ERROR_WANT_READ) {
-        c->read->ready = 0;
+        if (!c->ssl->event_since_handshake) {
+            c->read->ready = 0;
+        }
         c->read->handler = ngx_ssl_handshake_handler;
         c->write->handler = ngx_ssl_handshake_handler;
 
@@ -1526,7 +1529,9 @@ ngx_ssl_handshake_callback(void *arg, int n)
     }
 
     if (sslerr == SSL_ERROR_WANT_WRITE) {
-        c->write->ready = 0;
+        if (!c->ssl->event_since_handshake) {
+            c->write->ready = 0;
+        }
         c->read->handler = ngx_ssl_handshake_handler;
         c->write->handler = ngx_ssl_handshake_handler;
 

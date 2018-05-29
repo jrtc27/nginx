@@ -86,6 +86,7 @@ struct ngx_ssl_connection_s {
     unsigned                    no_send_shutdown:1;
     unsigned                    handshake_buffer_set:1;
 #ifdef NGX_SSL_ASYNC
+    unsigned                    event_since_handshake:1;
     unsigned                    handshake_pending:1;
     unsigned                    recv_pending:1;
     unsigned                    write_pending:1;
